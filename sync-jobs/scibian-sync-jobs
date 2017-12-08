@@ -1,0 +1,399 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2017 Scibian Project <legal@scibian.org>
+#
+# This file is part of scibian-build-tools.
+#
+# scibian-build-tools is free software: you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# scibian-build-tools is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with scibian-build-tools.  If not, see
+# <http://www.gnu.org/licenses/>.
+
+import os
+import sys
+import requests
+import requests.utils
+import json
+import subprocess
+import shutil
+import subprocess
+from difflib import unified_diff
+import time
+
+import jinja2
+from debian import deb822
+
+#
+# Constants
+#
+
+API_ORG_URL = 'https://api.github.com/orgs/scibian/repos'
+GIT_URL_ROOT='https://github.com/scibian/'
+GIT_DIR_ROOT = '/local00/git'
+JOBS_TPL = '/etc/scibian/build/jobs.j2'
+JOBS_DIR = '/local00/jenkins-jobs'
+JOBS_FILE = '/local00/jenkins-jobs/scibian.yaml'
+
+MASTER_RELEASE = 'scibian8'
+DEBNAMES = {
+  'scibian8': 'jessie',
+  'scibian9': 'stretch',
+}
+
+#
+# Classes definitions for objects given to Jenkins jobs description template.
+#
+
+class JenkinsJob(object):
+
+    def __init__(self, name, git):
+
+        self.name = name
+        self.git = git
+        self.distros = []
+
+
+class JenkinsJobDistro(object):
+
+    def __init__(self, name, branch, archs):
+
+        self.name = name
+        self.debname = DEBNAMES[name]
+        self.branch = branch
+        self.archs = archs
+
+
+#
+# Utilities
+#
+
+def banner(step):
+
+    width = 50
+    print('\n'+"#"*width)
+    print('#' + ' '*(width-2) + '#')
+    format_spec = "# %%-%ds #" % (width-4)
+    print(format_spec % (step))
+    print('#' + ' '*(width-2) + '#')
+    print('#'*width+'\n')
+
+
+def req(url):
+
+    print("HTTP req to: %s, found:" % (url))
+
+    # The list_repos() function detects Git repositories which do not contains
+    # Debian source packages based on the 'notpkg' topic. According to GitHub
+    # API reference documentation, it is required to set this header to
+    # retrieve the topics along with the repositories list. For reference:
+    #
+    # https://developer.github.com/v3/repos/#list-all-topics-for-a-repository
+
+    headers = { 'Accept': 'application/vnd.github.mercy-preview+json' }
+    r = requests.get(url, headers=headers)
+
+    link_next = None
+    link_last = None
+
+    links = requests.utils.parse_header_links(r.headers['Link'])
+
+    for link in links:
+        if link['rel'] == 'next':
+            link_next = link['url']
+        if link['rel'] == 'last':
+            link_last = link['url']
+
+    return r, link_next, link_last
+
+
+def print_prefixed_output(indent, output):
+
+    if not len(output):
+        print(' ' * indent + "[snip]")
+    else:
+        for line in [ ' ' * indent + '| ' + xline \
+                      for xline in output.strip().split('\n') ]:
+            print(line)
+
+
+#
+# Git repositories syncing functions
+#
+
+def list_repos():
+
+    banner("List Git repositories")
+    repos = []
+ 
+    url = API_ORG_URL
+    r, link_next, link_last = req(url)
+
+    while True:
+        xrepos = r.json()
+
+        for repo in xrepos:
+            repo_name = repo['name']
+            print("  - %s" % repo_name)
+            # skip repo if has notpkg topics
+            if repo.has_key('topics') and 'notpkg' in repo['topics']:
+                print('    [skipping notpkg]')
+            else:
+                repos.append(repo_name)
+
+        if url == link_last:
+            print('  [stop iterating over links]')
+            break
+
+        url = link_next
+        r, link_next, _ = req(url)
+
+    return repos
+
+
+def fetch_repo(repo):
+
+    print("  - fetching repo %s, output:" % (repo))
+    cmd = ['git', 'fetch', 'github']
+    cwd = os.path.join(GIT_DIR_ROOT, repo)
+    try:
+        output = subprocess.check_output(cmd, cwd=cwd, stderr=subprocess.STDOUT)
+        print_prefixed_output(4, output)
+    except subprocess.CalledProcessError, e:
+        print("    error while running cmd %s: %s" % (str(cmd),str(e)))
+
+
+def clone_repo(repo):
+
+    print("  - cloning repo %s, output:" % (repo))
+    url = GIT_URL_ROOT + repo + '.git'
+    cmd = ['git', 'clone', '--origin=github', url]
+    try:
+        output = subprocess.check_output(cmd, cwd=GIT_DIR_ROOT, stderr=subprocess.STDOUT)
+        print_prefixed_output(4, output)
+    except subprocess.CalledProcessError, e:
+        print("    error while running cmd %s: %s" % (str(cmd),str(e)))
+
+    
+def remove_clone(repo):
+
+    print("  - removing dir %s" % (repo))
+    path = os.path.join(GIT_DIR_ROOT, repo)
+    shutil.rmtree(path)
+
+
+def sync_repos(repos):
+
+    banner("Sync Git repositories")
+    dirs = os.listdir(GIT_DIR_ROOT)
+    for repo in repos:
+        if repo not in dirs:
+            clone_repo(repo)
+        else:   
+            fetch_repo(repo)
+    for xdir in dirs:
+        if xdir not in repos:
+            remove_clone(xdir)
+
+#
+# Git branches discovering functions
+#
+
+def source_name(repo, branches):
+
+    if 'master' in branches:
+        branch = 'master'
+    elif 'scibian/master' in branches:
+        branch = 'scibian/master'
+    else:
+        # arbitrary select first branch
+        branch = branches[0]
+
+    remote_branch = 'github/' + branch
+
+    cmd = ['git', 'show', "%s:debian/control" % (remote_branch) ]
+    cwd = os.path.join(GIT_DIR_ROOT, repo)
+    control = subprocess.check_output(cmd, cwd=cwd).split('\n')
+
+    build_i386 = False
+
+    for paragraph in deb822.Deb822.iter_paragraphs(control):
+        source = paragraph.get('Source')
+        if source is not None:
+            return source
+
+    return None
+
+def branch_archs(repo, branch):
+
+    remote_branch = 'github/' + branch
+
+    cmd = ['git', 'show', "%s:debian/control" % (remote_branch) ]
+    cwd = os.path.join(GIT_DIR_ROOT, repo)
+    control = subprocess.check_output(cmd, cwd=cwd).split('\n')
+
+    build_i386 = False
+
+    for paragraph in deb822.Deb822.iter_paragraphs(control):
+        arch = paragraph.get('Architecture')
+        if arch is not None and ('i386' in arch or 'any' in arch):
+            build_i386 = True
+
+    archs = 'amd64'
+    if build_i386:
+        archs = 'i386, ' + archs
+
+    return archs
+
+
+def gen_job(repo, branches):
+
+    git_dir = os.path.join(GIT_DIR_ROOT, repo)
+
+    job = JenkinsJob(repo, git_dir)
+
+    src_name = source_name(repo, branches)
+
+    for branch in branches:
+        # The last scibian release branch is master (instead of
+        # 'scibian/master) for Scibian native packages (whose name are prefixed
+        # by 'scibian-')
+        if src_name.startswith('scibian-') and branch == 'master':
+            release = MASTER_RELEASE
+        elif branch == 'scibian/master':
+            release = MASTER_RELEASE
+        elif branch == 'scibian/jessie':
+            # workaround for old scibian/jessie branch that do not respect the
+            # git branch naming convention
+            release = 'scibian8'
+            print("     WARNING: repository %s does not respect git branch "
+                  "conventions, support for the branch name %s may be removed "
+                  "at any time" % (repo, branch))
+        elif branch.startswith('scibian/'):
+            reldigit = branch[-1]
+            if not reldigit.isdigit():
+                print("unknown scibian branch %s" % (branch))
+                continue
+            release = 'scibian' + reldigit
+        else:
+            print("    [ignoring branch %s]" % (branch))
+            continue
+
+        archs = branch_archs(repo, branch)
+
+        job.distros.append(JenkinsJobDistro(release, branch, archs))
+
+    return job
+
+
+def discover_branches(repo):
+
+    branches = []
+    try:
+        cmd = ['git', 'ls-remote', '--quiet', '--heads', 'github']
+        cwd = os.path.join(GIT_DIR_ROOT, repo)
+        output = subprocess.check_output(cmd, cwd=cwd)
+        for line in output.split('\n'):
+            if not len(line):
+                continue
+            branch = line.split('refs/heads/')[1]
+            print ("    - %s" % (branch))
+            branches.append(branch)
+    except subprocess.CalledProcessError, e:
+        print("error while running cmd %s: %s" % (str(cmd),str(e)))
+    return branches
+
+
+def discover_jobs():
+
+    banner("Discovering Git branches")
+    jobs = []
+    dirs = os.listdir(GIT_DIR_ROOT)
+    for repo in dirs:
+        print("  + %s:" % (repo))
+        branches = discover_branches(repo)
+        jobs.append(gen_job(repo, branches))
+    return jobs
+
+#
+# Jenkins jobs description file rendering and update functions
+#
+
+def render_jobs(jobs):
+
+    print("-> rendering jobs description with template")
+    path, filename = os.path.split(JOBS_TPL)
+    return jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path or './')
+    ).get_template(filename).render({'jobs': jobs})
+
+
+def report_diff(jobs_desc):
+
+    print("-> diff with previous jobs descriptions file:")
+
+    # split lines and add line break at the end of every lines
+    new_jobs = [ line+'\n' for line in jobs_desc.split('\n') ]
+    with open(JOBS_FILE) as jobs_h:
+        old_jobs = jobs_h.readlines()
+
+    to_file = JOBS_FILE + '.new'
+    from_file = JOBS_FILE
+
+    for line in unified_diff(old_jobs, new_jobs,
+                             fromfile=from_file, tofile=to_file):
+        sys.stdout.write(line)
+
+
+def write_jobs_file(jobs_desc):
+
+    print("-> overwriting jobs description file %s" % (JOBS_FILE))
+    with open(JOBS_FILE, 'w+') as jobs_h:
+        jobs_h.write(jobs_desc)
+
+
+def update_jenkins():
+
+    banner("Update jobs in Jenkins")
+    cmd = ['jenkins-jobs', 'update', JOBS_DIR]
+    output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
+    print_prefixed_output(4, output)
+
+
+def update_jobs(jobs):
+
+    banner("Update jobs")
+    jobs_desc = render_jobs(jobs)
+    report_diff(jobs_desc)
+    write_jobs_file(jobs_desc)
+    update_jenkins()
+
+
+#
+# main
+#
+
+def main():
+
+    start = time.time()
+    repos = list_repos()
+    sync_repos(repos)
+    jobs = discover_jobs()
+    update_jobs(jobs)
+    end = time.time()
+    print("\nElapsed time: %s secs [start: %s, end: %s]"
+          % (str(end - start), str(start), str(end)))
+
+
+if __name__ == '__main__':
+    main()
+

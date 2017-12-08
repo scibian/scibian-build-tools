@@ -1,0 +1,16 @@
+{% for job in jobs|sort(attribute='name') %}
+- project:
+    name: {{job.name}}
+    git_url: file://{{job.git}}
+    distros:
+{%- for distro in job.distros %}
+        - {{distro.name}}:
+            scibian_codename: {{distro.name}}
+            debian_codename: {{distro.debname}}
+            git_branch: {{distro.branch}}
+            archs: !!python/tuple [{{distro.archs}}]
+    jobs:
+        - 'src-{scibian_codename}-{name}'
+        - 'bin-{scibian_codename}-{name}'
+{% endfor -%}
+{% endfor %}
