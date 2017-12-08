@@ -4,4 +4,6 @@
 # Copyright (C) 2017 Scibian Project <legal@scibian.org>
 # distributed under the terms of the GPLv3 or later.
 
-*/5 * * * * root scibian-sync-jobs > /local00/sync/sync-jobs_$(date +'\%Y-\%m-\%d_\%H:\%M:\%S').txt
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+*/5 * * * * root scibian-sync-jobs &> /local00/sync/sync-jobs_$(date +'\%Y-\%m-\%d_\%H:\%M:\%S').txt
