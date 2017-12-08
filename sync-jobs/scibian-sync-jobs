@@ -321,6 +321,9 @@ def discover_jobs():
     for repo in dirs:
         print("  + %s:" % (repo))
         branches = discover_branches(repo)
+        if not len(branches):
+            print("    no branch found in repo %s, skipping" % (repo))
+            continue
         jobs.append(gen_job(repo, branches))
     return jobs
 
