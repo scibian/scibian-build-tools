@@ -1,7 +1,7 @@
 {% for job in jobs|sort(attribute='name') %}
 - project:
     name: {{job.name}}
-    git_url: file://{{job.git}}
+    git_url: https://github.com/scibian/{{job.name}}.git
     distros:
 {%- for distro in job.distros %}
         - {{distro.name}}:
