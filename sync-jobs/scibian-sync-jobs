@@ -278,6 +278,8 @@ def gen_job(repo, branches):
             print("     WARNING: repository %s does not respect git branch "
                   "conventions, support for the branch name %s may be removed "
                   "at any time" % (repo, branch))
+        elif branch == 'scibian/stretch':
+            release = 'scibian9'
         elif branch.startswith('scibian/'):
             reldigit = branch[-1]
             if not reldigit.isdigit():
