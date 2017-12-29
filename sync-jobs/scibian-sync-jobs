@@ -215,8 +215,8 @@ def source_name(repo, branches):
     elif 'scibian/master' in branches:
         branch = 'scibian/master'
     else:
-        # arbitrary select first branch
-        branch = branches[0]
+        # arbitrary select first branch (exclude orig tar branches)
+        branch = list(set(branches)-{'pristine-tar','upstream'})[0]
 
     remote_branch = 'github/' + branch
 
