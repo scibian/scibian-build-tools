@@ -93,7 +93,7 @@
             keep-long-stdio: false
         - fingerprint:
             record-artifacts: true
-        #- workspace-cleanup:
-        #    dirmatch: false
+        - workspace-cleanup:
+            dirmatch: false
       wrappers:
         - timestamps
