@@ -1,5 +1,6 @@
 CONF_DIR=/etc/scibian/build
 WRAPPER_DIR=/usr/local/lib/scibian/exec
+JOBS_DIR=/local00/jenkins-jobs
 
 install:
 	install --directory ${CONF_DIR}
@@ -8,3 +9,4 @@ install:
 	install --mode=0644 sync-jobs/cronjob /etc/cron.d/scibian-sync-jobs
 	install --directory ${WRAPPER_DIR}
 	install --mode=0744 sync-jobs/cron-wrapper.sh ${WRAPPER_DIR}/scibian-sync-jobs-cron-wrapper
+	install --mode=0644 sync-jobs/job-templates.yaml ${JOBS_DIR}/job-templates.yaml

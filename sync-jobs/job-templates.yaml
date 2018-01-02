@@ -1,0 +1,99 @@
+- job-template:
+      name: 'src-{scibian_codename}-{name}'
+      project-type: freestyle
+      description: 'Build Debian source package of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!'
+      disabled: false
+      scm:
+        - git:
+            url: '{git_url}'
+            name: origin
+            refspec: +refs/heads/*:refs/remotes/origin/*
+            basedir: source
+            branches:
+              - '{git_branch}'
+            wipe-workspace: false
+      logrotate:
+        numToKeep: 3
+      builders:
+        - shell: 'rm -f ./* || true'
+        - shell: |
+            # do not modify the changelog
+            export SKIP_DCH=true
+            #export SKIP_QUILT_CLEANUP=true
+            # when using git:
+            /usr/bin/generate-git-snapshot
+        - shell: |
+            mkdir -p report
+            touch report/lintian.xml
+            /usr/bin/lintian-junit-report --mark-as-skipped=untranslatable-debconf-templates,not-using-po-debconf *.dsc > report/lintian.xml
+      publishers:
+        - archive:
+            artifacts: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.git,*.changes,lintian.txt'
+        - trigger:
+            project: 'bin-{scibian_codename}-{name}'
+            threshold: UNSTABLE
+        - junit:
+            results: '**/lintian.xml'
+            keep-long-stdio: false
+        - fingerprint:
+            record-artifacts: true
+      wrappers:
+        - timestamps
+
+- job-template:
+      name: 'bin-{scibian_codename}-{name}'
+      project-type: matrix
+      description: |
+          <p>Build Debian binary packages of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!</p>
+          <p>Access to this repository is available using the following sources.list entry:</p>
+          <pre>
+            deb     http://scibian.org/repo/ {scibian_codename} main
+            deb-src http://scibian.org/repo/ {scibian_codename} main
+          </pre>
+      execution-strategy:
+        sequential: true
+        touchstone:
+          expr: 'architecture!="amd64"'
+          result: 'unstable'
+      logrotate:
+        numToKeep: 3
+      axes:
+        - axis:
+            type: user-defined
+            name: architecture
+            values: '{obj:archs}'
+      builders:
+        - copyartifact:
+            project: 'src-{scibian_codename}-{name}'
+            filter: '*'
+            which-build: upstream-build
+            fallback-to-last-successful: true
+        - shell: |
+            export distribution={debian_codename}
+            export release={scibian_codename}
+            export REMOVE_FROM_RELEASE=true
+            export REPOSITORY_EXTRA="deb http://scibian.org/repo/ {scibian_codename} main"
+            export SKIP_BINARY_REMOVAL=true
+            export POST_BUILD_HOOK=/usr/bin/jdg-debc
+            export DEB_BUILD_OPTIONS=parallel=4
+            export REPREPRO_OPTS=--ignore=surprisingbinary
+            /usr/bin/build-and-provide-package
+        - shell: |
+            mkdir -p report
+            touch report/lintian.xml
+            /usr/bin/lintian-junit-report --mark-as-skipped=bad-distribution-in-changes-file *.changes > report/lintian.xml
+        #- shell: |
+        #    echo "Listing packages inside the {scibian_codename} repository:"
+        #    /usr/bin/repository_checker --list-repos {scibian_codename}
+      publishers:
+        - archive:
+            artifacts: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.git,*.changes,lintian.txt'
+        - junit:
+            results: '**/lintian.xml'
+            keep-long-stdio: false
+        - fingerprint:
+            record-artifacts: true
+        #- workspace-cleanup:
+        #    dirmatch: false
+      wrappers:
+        - timestamps
