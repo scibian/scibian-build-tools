@@ -77,6 +77,9 @@
             export POST_BUILD_HOOK=/usr/bin/jdg-debc
             export DEB_BUILD_OPTIONS=parallel=4
             export REPREPRO_OPTS=--ignore=surprisingbinary
+            if [ "${{architecture}}" != "amd64" ]; then
+                export ADT=skip  # workaround for https://github.com/mika/jenkins-debian-glue/issues/187
+            fi
             /usr/bin/build-and-provide-package
         - shell: |
             mkdir -p report
