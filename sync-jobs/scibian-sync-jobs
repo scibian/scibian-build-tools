@@ -45,9 +45,15 @@ JOBS_DIR = '/local00/jenkins-jobs'
 JOBS_FILE = '/local00/jenkins-jobs/scibian.yaml'
 
 MASTER_RELEASE = 'scibian8'
-DEBNAMES = {
-  'scibian8': 'jessie',
-  'scibian9': 'stretch',
+DISTROS = {
+  'scibian8': {
+      'debname': 'jessie',
+      'version': '8.0.0',
+  },
+  'scibian9': {
+      'debname': 'stretch',
+      'version': '9.0.0',
+  },
 }
 
 #
@@ -68,9 +74,12 @@ class JenkinsJobDistro(object):
     def __init__(self, name, branch, archs):
 
         self.name = name
-        self.debname = DEBNAMES[name]
+        self.debname = DISTROS[name]['debname']
         self.branch = branch
         self.archs = archs
+        self.repo = name
+        self.label = name.title()
+        self.version = DISTROS[name]['version']
 
 
 #

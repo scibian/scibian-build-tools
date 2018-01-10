@@ -71,6 +71,13 @@
         - shell: |
             export distribution={debian_codename}
             export release={scibian_codename}
+            # repository/distribution settings
+            export RELEASE_DISTRIBITION={scibian_repo}
+            export ORIGIN=Scibian
+            export SUITE={scibian_codename}
+            export VERSION={scibian_version}
+            export LABEL={scibian_label}
+            # build settings
             export REMOVE_FROM_RELEASE=true
             export REPOSITORY_EXTRA="deb http://scibian.org/repo/ {scibian_codename} main"
             export SKIP_BINARY_REMOVAL=true

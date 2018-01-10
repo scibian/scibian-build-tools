@@ -7,6 +7,9 @@
         - {{distro.name}}:
             scibian_codename: {{distro.name}}
             debian_codename: {{distro.debname}}
+            scibian_repo: {{distro.repo}}
+            scibian_label: {{distro.label}}
+            scibian_version: {{distro.version}}
             git_branch: {{distro.branch}}
             archs: !!python/tuple [{{distro.archs}}]
     {% endfor -%}
