@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0"  xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>Scibian Project package updates</title>
+  <link>https://scibian.org/updates.html</link>
+  <description>This feed lists packages updates in the Scibian project</description>
+  <atom:link href="https://scibian.org/updates.rss" rel="self" type="application/rss+xml" />
+{% for entry in entries|sort(attribute='date',reverse=true) %}
+  <item>
+    <title>{{entry.release}}: {{entry.srcpkg}} {{entry.version}}</title>
+    <pubDate>{{entry.daterfc822}}</pubDate>
+    <link>https://scibian.org/updates.html#{{entry.hash}}</link>
+    <guid>https://scibian.org/updates.html#{{entry.hash}}</guid>
+    <description>Package {{entry.srcpkg}} version {{entry.version}} has been published in {{entry.release}}.</description>
+  </item>
+{% endfor %}
+</channel>
+</rss>

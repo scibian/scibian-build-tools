@@ -1,0 +1,191 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2018 Scibian Project <legal@scibian.org>
+#
+# This file is part of scibian-build-tools.
+#
+# scibian-build-tools is free software: you can redistribute it
+# and/or modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation, either version 3 of the
+# License, or (at your option) any later version.
+#
+# scibian-build-tools is distributed in the hope that it will be
+# useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+# of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with scibian-build-tools.  If not, see
+# <http://www.gnu.org/licenses/>.
+
+import urllib
+import json
+import urllib2
+import base64
+import re
+import os
+import hashlib
+import time
+from email.Utils import formatdate
+import ConfigParser
+
+import feedparser
+import jinja2
+
+#import pprint
+#pp = pprint.PrettyPrinter(indent=4)
+
+JENKINS = 'http://localhost:8080/jenkins'
+RSS = JENKINS + '/rssLatest'
+TPL_DIR='/etc/scibian/feed'
+TPL_RSS=TPL_DIR+'/rss.j2'
+TPL_HTML=TPL_DIR+'/html.j2'
+RESULT_RSS='/local00/www/updates.rss'
+RESULT_HTML='/local00/www/updates.html'
+# This script relies on jenkins-job-builder conf file. THIS IS A BAD PRACTICE!
+# Every software MUST use its own conf file. This simplify settings and
+# deployment at the time this script is developed but it may (hopefully) change
+# at any time in the future.
+CONF_PATH = '/etc/jenkins_jobs/jenkins_jobs.ini'
+
+
+class RuntimeConf(object):
+
+    def __init__(self):
+
+        self.user = None
+        self.token = None
+
+    def parse(self, path):
+        config = ConfigParser.RawConfigParser()
+        config.read(path)
+        self.user = config.get('jenkins', 'user')
+        self.token = config.get('jenkins', 'password')
+
+
+# global conf object
+conf = RuntimeConf()
+
+
+class StreamEntry(object):
+
+    def __init__(self, srcpkg, release, repo, date, version=None):
+
+        self.srcpkg = srcpkg
+        self.release = release
+        self.repo = repo
+        self.date = date
+        self.version = version
+        self.binpkgs = []
+
+    @property
+    def hash(self):
+        return hashlib.sha1("%s:%s:%s" %
+                             (self.release,
+                              self.srcpkg,
+                              str(self.date))).hexdigest()
+
+    @property
+    def daterfc822(self):
+        return formatdate(time.mktime(self.date))
+        return self.date
+
+    def __str__(self):
+        return "  - [%s] %s: %s [%s] (%s): %s" % \
+                 (str(self.date),
+                  self.release,
+                  self.srcpkg,
+                  self.version,
+                  self.repo,
+                  str(self.binpkgs))
+
+
+def auth_headers():
+    # check out:
+    # https://stackoverflow.com/questions/16907684/fetching-a-url-from-a-basic-auth-protected-jenkins-server-with-urllib2
+    # or
+    # https://gist.github.com/dnozay/194d816aa6517dc67ca1
+    auth_header = 'Basic ' + \
+                  base64.b64encode('%s:%s' % (conf.user, conf.token)).strip()
+    return {'Authorization': auth_header}
+
+
+def job_info(job, link, stream_entry):
+
+    url = "%s/api/json" % (link)
+
+    req = urllib2.Request(url, headers=auth_headers())
+    response = urllib2.urlopen(req)
+    the_page = response.read()
+    job_info = json.loads(the_page)
+    #pp.pprint(job_info)
+
+    for config_info in job_info['runs']:
+        root_url = config_info['url']
+        url = "%s/api/json" % (root_url)
+        print("GET %s" % (url))
+        req = urllib2.Request(url, headers=auth_headers())
+        response = urllib2.urlopen(req)
+        the_page = response.read()
+        run_info = json.loads(the_page)
+        #pp.pprint(run_info)
+        for run_artifact in run_info['artifacts']:
+            filename = run_artifact['fileName']
+            if filename.endswith('.deb'):
+                file_parts = filename.split('_')
+                version = file_parts[1]
+                binpkg = file_parts[0]
+                if stream_entry.version is None:
+                    stream_entry.version = version
+                if binpkg not in stream_entry.binpkgs:
+                    stream_entry.binpkgs.append(binpkg)
+
+
+def build_entries():
+
+    print("-> building feed entries based on Jenkins API")
+    d = feedparser.parse(RSS, request_headers=auth_headers())
+    print(d.status)
+
+    entries = []
+
+    for jenkins_entry in d.entries:
+        job = jenkins_entry.title.split(' ')[0]
+        if job.startswith('bin-'):
+            job_parts = job.split('-')
+            srcpkg = '-'.join(job_parts[2:])
+            repo = job_parts[1]
+            release = re.search('scibian\d+', repo).group(0)
+            stream_entry = StreamEntry(srcpkg, release, repo,
+                                       jenkins_entry.published_parsed)
+            job_info(job, jenkins_entry.link, stream_entry)
+            entries.append(stream_entry)
+
+    return entries
+
+def render(entries, tpl, output):
+
+    path, filename = os.path.split(tpl)
+    result = jinja2.Environment(
+        loader=jinja2.FileSystemLoader(path or './')
+    ).get_template(filename).render({'entries': entries})
+    with open(output, 'w+') as rss_h:
+        rss_h.write(result)
+
+
+def render_all(entries):
+    print("-> rendering updates with templates")
+    render(entries, TPL_RSS, RESULT_RSS)
+    render(entries, TPL_HTML, RESULT_HTML)
+
+
+def main():
+    global conf
+    conf.parse(CONF_PATH)
+    entries = build_entries()
+    render_all(entries)
+
+
+if __name__ == '__main__':
+    main()

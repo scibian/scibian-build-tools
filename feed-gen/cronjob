@@ -1,0 +1,7 @@
+#
+# cron.d/scibian-sync-jobs -- Synchronize Scibian Jenkins jobs with GitHub
+#
+# Copyright (C) 2017 Scibian Project <legal@scibian.org>
+# distributed under the terms of the GPLv3 or later.
+
+*/5 * * * * root /usr/local/lib/scibian/exec/pkgs-feed-generator &>/dev/null
