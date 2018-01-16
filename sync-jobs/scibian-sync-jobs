@@ -44,7 +44,6 @@ JOBS_TPL = '/etc/scibian/build/jobs.j2'
 JOBS_DIR = '/local00/jenkins-jobs'
 JOBS_FILE = '/local00/jenkins-jobs/scibian.yaml'
 
-MASTER_RELEASE = 'scibian8'
 DISTROS = {
   'scibian8': {
       'debname': 'jessie',
@@ -272,29 +271,14 @@ def gen_job(repo, branches):
 
     src_name = source_name(repo, branches)
 
+    # Build dict with branche names as keys and corresponding scibian releases
+    # as values
+    branches_releases = { 'scibian/' + DISTROS[release]['debname']: release
+                          for release in DISTROS.iterkeys() }
+
     for branch in branches:
-        # The last scibian release branch is master (instead of
-        # 'scibian/master) for Scibian native packages (whose name are prefixed
-        # by 'scibian-')
-        if src_name.startswith('scibian-') and branch == 'master':
-            release = MASTER_RELEASE
-        elif branch == 'scibian/master':
-            release = MASTER_RELEASE
-        elif branch == 'scibian/jessie':
-            # workaround for old scibian/jessie branch that do not respect the
-            # git branch naming convention
-            release = 'scibian8'
-            print("     WARNING: repository %s does not respect git branch "
-                  "conventions, support for the branch name %s may be removed "
-                  "at any time" % (repo, branch))
-        elif branch == 'scibian/stretch':
-            release = 'scibian9'
-        elif branch.startswith('scibian/'):
-            reldigit = branch[-1]
-            if not reldigit.isdigit():
-                print("unknown scibian branch %s" % (branch))
-                continue
-            release = 'scibian' + reldigit
+        if branch in branches_releases.keys():
+            release = branches_releases[branch]
         else:
             print("    [ignoring branch %s]" % (branch))
             continue
