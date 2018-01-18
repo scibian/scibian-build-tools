@@ -25,7 +25,7 @@
         - shell: |
             mkdir -p report
             touch report/lintian.xml
-            /usr/bin/lintian-junit-report --mark-as-skipped=untranslatable-debconf-templates,not-using-po-debconf *.dsc > report/lintian.xml
+            /usr/bin/lintian-junit-report --lintian-opt=--profile=scibian --mark-as-skipped=untranslatable-debconf-templates,not-using-po-debconf *.dsc > report/lintian.xml
       publishers:
         - archive:
             artifacts: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.git,*.changes,lintian.txt'
@@ -91,7 +91,7 @@
         - shell: |
             mkdir -p report
             touch report/lintian.xml
-            /usr/bin/lintian-junit-report --mark-as-skipped=bad-distribution-in-changes-file *.changes > report/lintian.xml
+            /usr/bin/lintian-junit-report --lintian-opt=--profile=scibian *.changes > report/lintian.xml
         #- shell: |
         #    echo "Listing packages inside the {scibian_codename} repository:"
         #    /usr/bin/repository_checker --list-repos {scibian_codename}
