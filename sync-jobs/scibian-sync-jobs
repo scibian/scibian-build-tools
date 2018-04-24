@@ -21,6 +21,7 @@
 
 import os
 import sys
+import re
 import requests
 import requests.utils
 import json
@@ -220,11 +221,10 @@ def source_name(repo, branches):
 
     if 'master' in branches:
         branch = 'master'
-    elif 'scibian/master' in branches:
-        branch = 'scibian/master'
     else:
-        # arbitrary select first branch (exclude orig tar branches)
-        branch = list(set(branches)-{'pristine-tar','upstream'})[0]
+        scibian_branch = re.compile('scibian\/.*')
+        # arbitrary select first branch that match regexp
+        branch = list(filter(lambda x: scibian_branch.match(x) is not None, branches))[0]
 
     remote_branch = 'github/' + branch
 
