@@ -6,6 +6,7 @@
     {%- for distro in job.distros %}
         - {{distro.name}}:
             scibian_codename: {{distro.name}}
+            scibian_escaped_codename: {{distro.escaped_name}}
             debian_codename: {{distro.debname}}
             scibian_repo: {{distro.repo}}
             scibian_label: {{distro.label}}
@@ -14,6 +15,6 @@
             archs: !!python/tuple [{{distro.archs}}]
     {% endfor -%}
     jobs:
-        - 'src-{scibian_codename}-{name}'
-        - 'bin-{scibian_codename}-{name}'
+        - 'src-{scibian_escaped_codename}-{name}'
+        - 'bin-{scibian_escaped_codename}-{name}'
 {% endfor %}

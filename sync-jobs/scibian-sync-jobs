@@ -71,9 +71,13 @@ class JenkinsJob(object):
 
 class JenkinsJobDistro(object):
 
-    def __init__(self, name, branch, archs):
+    def __init__(self, name, branch, archs, aspect):
 
         self.name = name
+        self.escaped_name = name
+        if aspect is not None:
+            self.name += '+' + aspect
+            self.escaped_name += '_' + aspect
         self.debname = DISTROS[name]['debname']
         self.branch = branch
         self.archs = archs
@@ -271,21 +275,32 @@ def gen_job(repo, branches):
 
     src_name = source_name(repo, branches)
 
-    # Build dict with branche names as keys and corresponding scibian releases
-    # as values
-    branches_releases = { 'scibian/' + DISTROS[release]['debname']: release
+    # Build dict with Scibian releases as keys and corresponding branches
+    # names regexp as values
+    rel_branches_regex = { release: re.compile('scibian(\/.+)?\/' + DISTROS[release]['debname'])
                           for release in DISTROS.iterkeys() }
 
     for branch in branches:
-        if branch in branches_releases.keys():
-            release = branches_releases[branch]
-        else:
+
+        release_branch = False
+
+        for release, branch_regex in rel_branches_regex.iteritems():
+
+            branch_match = branch_regex.match(branch)
+
+            if branch_match is not None:
+                release_branch = True
+
+                # look for eventual aspect in branch name
+                aspect = None
+                if branch_match.group(1):
+                    aspect = branch_match.group(1)[1:] # remove starting slash
+
+                archs = branch_archs(repo, branch)
+                job.distros.append(JenkinsJobDistro(release, branch, archs, aspect))
+
+        if not release_branch:
             print("    [ignoring branch %s]" % (branch))
-            continue
-
-        archs = branch_archs(repo, branch)
-
-        job.distros.append(JenkinsJobDistro(release, branch, archs))
 
     return job
 

@@ -1,5 +1,5 @@
 - job-template:
-      name: 'src-{scibian_codename}-{name}'
+      name: 'src-{scibian_escaped_codename}-{name}'
       project-type: freestyle
       description: 'Build Debian source package of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!'
       disabled: false
@@ -30,7 +30,7 @@
         - archive:
             artifacts: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.git,*.changes,lintian.txt'
         - trigger:
-            project: 'bin-{scibian_codename}-{name}'
+            project: 'bin-{scibian_escaped_codename}-{name}'
             threshold: UNSTABLE
         - junit:
             results: '**/lintian.xml'
@@ -41,7 +41,7 @@
         - timestamps
 
 - job-template:
-      name: 'bin-{scibian_codename}-{name}'
+      name: 'bin-{scibian_escaped_codename}-{name}'
       project-type: matrix
       description: |
           <p>Build Debian binary packages of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!</p>
@@ -64,7 +64,7 @@
             values: '{obj:archs}'
       builders:
         - copyartifact:
-            project: 'src-{scibian_codename}-{name}'
+            project: 'src-{scibian_escaped_codename}-{name}'
             filter: '*'
             which-build: upstream-build
             fallback-to-last-successful: true
@@ -79,7 +79,11 @@
             export LABEL={scibian_label}
             # build settings
             export REMOVE_FROM_RELEASE=true
-            export REPOSITORY_EXTRA="deb http://scibian.org/repo/ {scibian_codename} main"
+            REPOSITORY_EXTRA="deb http://scibian.org/repo/ {scibian_repo} main"
+            if [ "{scibian_repo}" != "{scibian_codename}" ]; then
+                REPOSITORY_EXTRA="${{REPOSITORY_EXTRA}}|deb http://scibian.org/repo/ {scibian_codename} main"
+            fi
+            export REPOSITORY_EXTRA
             export SKIP_BINARY_REMOVAL=true
             export POST_BUILD_HOOK=/usr/bin/jdg-debc
             export DEB_BUILD_OPTIONS=parallel=4
