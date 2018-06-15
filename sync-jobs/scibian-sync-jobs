@@ -355,7 +355,7 @@ def report_diff(jobs_desc):
     print("-> diff with previous jobs descriptions file:")
 
     # split lines and add line break at the end of every lines
-    new_jobs = [ line+'\n' for line in jobs_desc.split('\n') ]
+    new_jobs = [ line+'\n' for line in jobs_desc.split('\n')[:-1] ]
     with open(JOBS_FILE) as jobs_h:
         old_jobs = jobs_h.readlines()
 
