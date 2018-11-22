@@ -79,7 +79,12 @@
             export LABEL={scibian_label}
             # build settings
             export REMOVE_FROM_RELEASE=true
-            REPOSITORY_EXTRA="deb http://scibian.org/repo/ {scibian_repo} main"
+            # For aspects, add generic scibian repository. Jenkins-debian-glue
+            # will automatically add aspect variant of the repository but will
+            # miss the generic one.
+            if [ "{scibian_repo}" != "{scibian_codename}" ]; then
+                REPOSITORY_EXTRA="deb [trusted=yes] file:/local00/repo {scibian_repo} main"
+            fi
             export REPOSITORY_EXTRA
             export SKIP_BINARY_REMOVAL=true
             export POST_BUILD_HOOK=/usr/bin/jdg-debc
