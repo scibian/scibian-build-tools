@@ -1,5 +1,5 @@
 - job-template:
-      name: 'src-{scibian_escaped_codename}-{name}'
+      name: 'src-{distros}-{name}'
       project-type: freestyle
       description: 'Build Debian source package of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!'
       disabled: false
@@ -30,7 +30,7 @@
         - archive:
             artifacts: '*.gz,*.bz2,*.xz,*.deb,*.dsc,*.git,*.changes,lintian.txt'
         - trigger:
-            project: 'bin-{scibian_escaped_codename}-{name}'
+            project: 'bin-{distros}-{name}'
             threshold: UNSTABLE
         - junit:
             results: '**/lintian.xml'
@@ -41,7 +41,7 @@
         - timestamps
 
 - job-template:
-      name: 'bin-{scibian_escaped_codename}-{name}'
+      name: 'bin-{distros}-{name}'
       project-type: matrix
       description: |
           <p>Build Debian binary packages of {name} for {scibian_codename}.<br />Do not edit this job through the web, it is generated via jenkins-job-builder!</p>
@@ -64,7 +64,7 @@
             values: '{obj:archs}'
       builders:
         - copyartifact:
-            project: 'src-{scibian_escaped_codename}-{name}'
+            project: 'src-{distros}-{name}'
             filter: '*'
             which-build: upstream-build
             fallback-to-last-successful: true
