@@ -35,6 +35,7 @@
                 <h2 id='{{entry.hash}}'>{{entry.release}}: {{entry.srcpkg}} {{entry.version}}</h2>
                 <p>date: {{entry.daterfc822}}</p>
                 <p>Repository: {{entry.repo}}</p>
+{% if entry.binpkgs: %}
                 <p>Updated packages:
                   <ul>
 {% for binpkg in entry.binpkgs %}
@@ -42,6 +43,7 @@
 {% endfor %}
                   </ul>
                 </p>
+{% endif %}
 {% endfor %}
             </div>
         </div>
