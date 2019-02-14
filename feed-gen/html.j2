@@ -33,7 +33,7 @@
                 <p><a href='/'>Back to scibian website</a></p>
 {% for entry in entries|sort(attribute='date',reverse=true) %}
                 <h2 id='{{entry.hash}}'>{{entry.release}}: <a href="{{entry.link}}">{{entry.srcpkg}}</a> {{entry.version}}</h2>
-                <p>date: {{entry.daterfc822}}<br />
+                <p>Date: {{entry.daterfc822}}<br />
                 Repository: {{entry.repo}}<br />
 {% if entry.changes: %}
                 Changes:<br />
