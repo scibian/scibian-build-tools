@@ -30,6 +30,8 @@ import time
 from email.Utils import formatdate
 import ConfigParser
 
+from debian import deb822
+
 import feedparser
 import jinja2
 
@@ -70,7 +72,7 @@ conf = RuntimeConf()
 
 class StreamEntry(object):
 
-    def __init__(self, srcpkg, release, repo, link, date, version=None):
+    def __init__(self, srcpkg, release, repo, link, date, changes='', version=None):
 
         self.srcpkg = srcpkg
         self.release = release
@@ -78,6 +80,7 @@ class StreamEntry(object):
         self.link = link
         self.date = date
         self.version = version
+        self.changes = changes
         self.binpkgs = []
 
     @property
@@ -133,6 +136,16 @@ def job_info(job, link, stream_entry):
         #pp.pprint(run_info)
         for run_artifact in run_info['artifacts']:
             filename = run_artifact['fileName']
+            if filename.endswith('.changes') and not stream_entry.changes:
+                url = "%s/artifact/%s" % (root_url, filename)
+                req = urllib2.Request(url, headers=auth_headers())
+                response = urllib2.urlopen(req)
+                the_page = response.read()
+                c = deb822.Changes(the_page)
+                if 'Changes' in c.keys():
+                    changes = c['Changes'].encode('ascii', 'xmlcharrefreplace')
+                    changes = "<br />".join(changes.split("\n")[3:])
+                    stream_entry.changes = changes
             if filename.endswith('.dsc'):
                 file_parts = filename.split('_')
                 version = file_parts[1][:-4]
