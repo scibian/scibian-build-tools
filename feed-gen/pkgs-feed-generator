@@ -70,11 +70,12 @@ conf = RuntimeConf()
 
 class StreamEntry(object):
 
-    def __init__(self, srcpkg, release, repo, date, version=None):
+    def __init__(self, srcpkg, release, repo, link, date, version=None):
 
         self.srcpkg = srcpkg
         self.release = release
         self.repo = repo
+        self.link = link
         self.date = date
         self.version = version
         self.binpkgs = []
@@ -159,7 +160,8 @@ def build_entries():
             srcpkg = '-'.join(job_parts[2:])
             repo = job_parts[1]
             release = re.search('scibian\d+', repo).group(0)
-            stream_entry = StreamEntry(srcpkg, release, repo,
+            link = jenkins_entry.link
+            stream_entry = StreamEntry(srcpkg, release, repo, link,
                                        jenkins_entry.published_parsed)
             job_info(job, jenkins_entry.link, stream_entry)
             entries.append(stream_entry)
