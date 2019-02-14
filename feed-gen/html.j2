@@ -33,17 +33,17 @@
                 <p><a href='/'>Back to scibian website</a></p>
 {% for entry in entries|sort(attribute='date',reverse=true) %}
                 <h2 id='{{entry.hash}}'>{{entry.release}}: {{entry.srcpkg}} {{entry.version}}</h2>
-                <p>date: {{entry.daterfc822}}</p>
-                <p>Repository: {{entry.repo}}</p>
+                <p>date: {{entry.daterfc822}}<br />
+                Repository: {{entry.repo}}<br />
 {% if entry.binpkgs: %}
-                <p>Updated packages:
+                Updated packages:
                   <ul>
 {% for binpkg in entry.binpkgs %}
                     <li>{{binpkg}}</li>
 {% endfor %}
                   </ul>
-                </p>
 {% endif %}
+                </p>
 {% endfor %}
             </div>
         </div>
