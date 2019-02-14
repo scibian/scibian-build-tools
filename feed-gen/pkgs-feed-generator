@@ -132,12 +132,14 @@ def job_info(job, link, stream_entry):
         #pp.pprint(run_info)
         for run_artifact in run_info['artifacts']:
             filename = run_artifact['fileName']
-            if filename.endswith('.deb'):
+            if filename.endswith('.dsc'):
                 file_parts = filename.split('_')
-                version = file_parts[1]
-                binpkg = file_parts[0]
+                version = file_parts[1][:-4]
                 if stream_entry.version is None:
                     stream_entry.version = version
+            if filename.endswith('.deb'):
+                file_parts = filename.split('_')
+                binpkg = file_parts[0]
                 if binpkg not in stream_entry.binpkgs:
                     stream_entry.binpkgs.append(binpkg)
 
