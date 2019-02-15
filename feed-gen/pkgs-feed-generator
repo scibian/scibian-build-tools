@@ -51,6 +51,7 @@ RESULT_HTML='/local00/www/updates.html'
 # at any time in the future.
 CONF_PATH = '/etc/jenkins_jobs/jenkins_jobs.ini'
 
+re_email = re.compile('[^ <>]+@[^ <>]+')
 
 class RuntimeConf(object):
 
@@ -72,7 +73,7 @@ conf = RuntimeConf()
 
 class StreamEntry(object):
 
-    def __init__(self, srcpkg, release, repo, link, date, changes='', version=None):
+    def __init__(self, srcpkg, release, repo, link, date, changed_by=None, changes=None, version=None):
 
         self.srcpkg = srcpkg
         self.release = release
@@ -80,6 +81,7 @@ class StreamEntry(object):
         self.link = link
         self.date = date
         self.version = version
+        self.changed_by = changed_by
         self.changes = changes
         self.binpkgs = []
 
@@ -146,6 +148,10 @@ def job_info(job, link, stream_entry):
                     changes = c['Changes'].encode('ascii', 'xmlcharrefreplace')
                     changes = "<br />".join(changes.split("\n")[3:])
                     stream_entry.changes = changes
+                if 'Changed-By' in c.keys():
+                    changed_by = c['Changed-By'].encode('ascii', 'xmlcharrefreplace')
+                    changed_by = re.sub(re_email, '...', changed_by)
+                    stream_entry.changed_by = changed_by
             if filename.endswith('.dsc'):
                 file_parts = filename.split('_')
                 version = file_parts[1][:-4]
