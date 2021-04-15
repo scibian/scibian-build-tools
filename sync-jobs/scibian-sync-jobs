@@ -119,6 +119,15 @@ def req(url):
     headers = { 'Accept': 'application/vnd.github.mercy-preview+json' }
     r = requests.get(url, headers=headers)
 
+
+    ratelimit_remain = int(r.headers['X-RateLimit-Remaining'])
+    ratelimit_used = int(r.headers['X-RateLimit-Used'])
+
+    print("[ratelimit used:%d remain:%d]" % (ratelimit_used, ratelimit_remain))
+
+    if ratelimit_remain == 0:
+       return None, None, None
+
     link_next = None
     link_last = None
 
@@ -155,7 +164,7 @@ def list_repos():
     url = API_ORG_URL
     r, link_next, link_last = req(url)
 
-    while True:
+    while True and r:
         xrepos = r.json()
 
         for repo in xrepos:
@@ -403,9 +412,10 @@ def main():
 
     start = time.time()
     repos = list_repos()
-    sync_repos(repos)
-    jobs = discover_jobs()
-    update_jobs(jobs)
+    if len(repos):
+        sync_repos(repos)
+        jobs = discover_jobs()
+        update_jobs(jobs)
     end = time.time()
     print("\nElapsed time: %s secs [start: %s, end: %s]"
           % (str(end - start), str(start), str(end)))
