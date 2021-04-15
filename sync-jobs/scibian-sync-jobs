@@ -247,7 +247,11 @@ def source_name(repo, branches):
 
     cmd = ['git', 'show', "%s:debian/control" % (remote_branch) ]
     cwd = os.path.join(GIT_DIR_ROOT, repo)
-    control = subprocess.check_output(cmd, cwd=cwd).split('\n')
+    try:
+        control = subprocess.check_output(cmd, cwd=cwd).split('\n')
+    except subprocess.CalledProcessError as e:
+        print("    unable to get name in branch %s: %s: %s" % (remote_branch, str(cmd), str(e)))
+        return None
 
     build_i386 = False
 
@@ -287,6 +291,8 @@ def gen_job(repo, branches):
     job = JenkinsJob(repo, git_dir)
 
     src_name = source_name(repo, branches)
+    if not src_name:  # if unable to get source name, skip job
+        return None
 
     # Build dict with Scibian releases as keys and corresponding branches
     # names regexp as values
@@ -347,7 +353,9 @@ def discover_jobs():
         if not len(branches):
             print("    no branch found in repo %s, skipping" % (repo))
             continue
-        jobs.append(gen_job(repo, branches))
+        job = gen_job(repo, branches)
+        if job:  # if no error while getting jobs metadata
+            jobs.append(job)
     return jobs
 
 #
