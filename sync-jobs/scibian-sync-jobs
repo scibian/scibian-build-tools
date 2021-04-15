@@ -119,13 +119,13 @@ def req(url):
     headers = { 'Accept': 'application/vnd.github.mercy-preview+json' }
     r = requests.get(url, headers=headers)
 
-
     ratelimit_remain = int(r.headers['X-RateLimit-Remaining'])
     ratelimit_used = int(r.headers['X-RateLimit-Used'])
 
     print("[ratelimit used:%d remain:%d]" % (ratelimit_used, ratelimit_remain))
 
     if ratelimit_remain == 0:
+       print("[ratelimit reset: %s]" % (time.ctime(int(r.headers['X-RateLimit-Reset']))))
        return None, None, None
 
     link_next = None
